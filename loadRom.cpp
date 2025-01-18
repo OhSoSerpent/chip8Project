@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <cmath>
+#include <string>
 // Third-party library for keyboard-based events
 #include "colors.h"
 
@@ -106,7 +107,7 @@ void emulator::emulateCycle(){
                     }
                     case 0x0030 :   // Take v[x], convert it to 3 decimals, and store each in memory
                     {
-                        double newNum = std::stoi(std::string(1, v[x]), nullptr, 16);
+                        double newNum = std::to_string(std::strtoll(v[x]*, 0, 16));
                         double truncNum = std::floor(newNum*100)/100;
                         int xoo = truncNum/100;
                         int oxo = (truncNum - xoo) / 10;
@@ -148,7 +149,7 @@ void emulator::emulateCycle(){
                     case 0x00EE:    // Return from subroutine
                     {
                         --stackPointer;
-                        programCounter = stack[stackPointer];
+                        programCounter = stack[stackPointer] + 2;
                     break;
                     }
                 }
@@ -254,6 +255,7 @@ void emulator::emulateCycle(){
                         }   else {
                         }
                         v[x] = v[y] - v[x];
+                        programCounter += 2;
                     break;
                 }
             break;
