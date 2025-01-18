@@ -4,6 +4,7 @@
 #include <cstddef>
 class emulator{
     private:
+        std::string inputFile;
         unsigned short opcode;
         unsigned char memory[4096];
         unsigned char v[16];
@@ -21,5 +22,6 @@ class emulator{
     void loadRom();
     void emulateCycle();
     void drawScreen();
+    void stopFlag();
 };
 #endif

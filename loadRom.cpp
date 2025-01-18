@@ -4,10 +4,18 @@
 #include <iostream>
 #include <vector>
 #include <cstdlib>
+#include <iomanip>
+#include <cmath>
+// Third-party library for keyboard-based events
+#include "colors.h"
+
+
 void emulator::loadRom(){
+    std::cout << "File name? \n";
+    std::getline(std::cin, inputFile);
     // reads file into stream, finds the beginning and sets the pointer there
     std::cout << "reading" << std::endl;
-    std::ifstream file("IBM Logo.ch8", std::ios::binary);
+    std::ifstream file(inputFile, std::ios::binary);
     if(!file.is_open()){
         std::cout << "Not working!" << std::endl;
     }
@@ -33,46 +41,140 @@ void emulator::emulateCycle(){
         switch(opcode & 0xF000){
             
             case 0xA000:    // Set index to the address NNN
+            {
                 indexReg = nnn;
                 programCounter += 2;
             break;
+            }
             case 0xB000:    // Jump to address + v[0]
+            {
                 indexReg = (nnn + v[0]);
                 programCounter += 2;
             break;
+            }
             case 0xC000:         // Generates a random number, binary ANDs it with nn, then stores it in X
+            {
                 int random = rand();
                 v[x] = (nn & random);
                 programCounter += 2;
             break;
-            case 0x0000:    // Switch case for zeroes on the nibble
+            }
+            case 0xE000:   
+            {
+                switch(opcode & 0x000F){
+                    case 0x000E:    // Skip next instruction if holding given key
+                    {
+                        set_raw_mode(true);
+                        int ch = quick_read();
+                        if(ch == v[x]){
+                            programCounter += 4;
+                        } else {
+                            programCounter += 2;
+                        }
+                    break;
+                    }
+                    case 0x0001:    //Skip next instruction if not holding given key
+                    {
+                        set_raw_mode(true);
+                        int ch = quick_read();
+                        if(ch != v[x]){
+                            programCounter += 4;
+                        }   else{
+                            programCounter += 2;
+                        }
+                    break;
+                    }
+                }
+            }
+            case 0xF000:   
+            {
+                switch(opcode & 0x00F0){
+                    case 0x0000:
+                    {
+                        indexReg += v[x]; // Add v[x] to the index register, set v[16] if it overflows
+                        if(indexReg > 255){
+                            v[16] = 1;
+                        }
+                        programCounter += 2;
+                    break;
+                    }
+                    case 0x0020:   // Index Register is set to the address of character in v[x]
+                    {
+                        indexReg = v[x] * 0.5;
+                        programCounter += 2;
+                    break;
+                    }
+                    case 0x0030 :   // Take v[x], convert it to 3 decimals, and store each in memory
+                    {
+                        double newNum = std::stoi(std::string(1, v[x]), nullptr, 16);
+                        double truncNum = std::floor(newNum*100)/100;
+                        int xoo = truncNum/100;
+                        int oxo = (truncNum - xoo) / 10;
+                        int oox = truncNum - (xoo + oxo);
+                        memory[indexReg] = xoo;
+                        memory[indexReg + 1] = oxo;
+                        memory[indexReg + 2] = oox;
+                        programCounter += 2;
+                    break;
+                    }
+                    case 0x0050:   // Load x of V into memory
+                    {
+                        for(int i = 0; i < x; i++){
+                            memory[indexReg + i] = v[i];
+                        }
+                        programCounter += 2;
+                    break;
+                    }
+                    case 0x0060: // Load memory into V
+                    {
+                        for(int i = 0; i < x; i++){
+                            v[i] = memory[indexReg + i];
+                        }
+                        programCounter += 2;
+                    break;
+                    }
+                } 
+            break;
+            }
+            case 0x0000: {   // Switch case for zeroes on the nibble
                 switch(nnn){
                     case 0x00E0:    // Clear the screen
+                    {
                         std::fill(std::begin(screen), std::end(screen), 0);
                         drawFlag = true;
                         programCounter += 2;
                     break;
+                    }
                     case 0x00EE:    // Return from subroutine
+                    {
                         --stackPointer;
                         programCounter = stack[stackPointer];
                     break;
+                    }
                 }
             break;
+            }
             case 0x1000:    // Jump to given location
+            {
                 programCounter = nnn;
             break;
+            }
             case 0x2000:    // Call subroutine at location NNN
+            {
                 stack[stackPointer] = programCounter;
                 ++stackPointer;
                 programCounter = nnn;
             break;
+            }
             case 0x3000:    // Skips next instruction if v[x] equals NN, 0x3XNN
+            {
                 if(v[x] == nn){
                     programCounter += 4;
                 } else {
                     programCounter += 2;
                 }
             break;
+            }
             case 0x4000:    //Skip next instruction if v[x] is not equal
                 if(v[x] != nn){
                     programCounter += 4;
@@ -164,7 +266,6 @@ void emulator::emulateCycle(){
             break;
             case 0xD000:    // Draw to screen
             {
-                std::cout << "Drawing!" << std::endl;
                 unsigned short x = v[(opcode & 0x0F00) >> 8];
                 unsigned short y = v[(opcode & 0x00F0) >> 4];
                 unsigned short height = opcode & 0x000F;
@@ -193,13 +294,37 @@ void emulator::emulateCycle(){
             break;
         }
     }
+    void emulator::stopFlag(){
+        drawFlag == false;
+    }
     void emulator::initialize(){
         std::cout << "Initializing!" << std::endl;
         // Initialize registers and memory
+        unsigned char font[80] = {
+                0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+                0x20, 0x60, 0x20, 0x20, 0x70, // 1
+                0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+                0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+                0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+                0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+                0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+                0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+                0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+                0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+                0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+                0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+                0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+                0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+                0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+                0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+        };
         programCounter = 0x200; //The first 512 bytes(?) of memory are consumed by fonts
         opcode = 0;
         indexReg = 0;
         stackPointer = 0;
+        for(int i =0; i < 80; i++){
+            memory[i] = font[i];
+        }
     }
     void emulator::drawScreen(){
         for(int y = 0; y < 32; y++){

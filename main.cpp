@@ -12,6 +12,7 @@ while(1){
     if(Emulator.drawFlag){
         system("clear");
         Emulator.drawScreen(); 
+        Emulator.drawFlag = false;
     }
 }
 return 0; 
