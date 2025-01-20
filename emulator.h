@@ -16,6 +16,7 @@ class emulator{
         unsigned short stack[16];
         unsigned short stackPointer;
         unsigned char currKey[16];
+        unsigned char flagVal;
     public:
         bool drawFlag = false;
     void initialize();

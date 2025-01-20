@@ -34,7 +34,7 @@ void emulator::loadRom(){
 void emulator::emulateCycle(){
         //Fetch
         opcode = memory[programCounter] << 8 | memory[programCounter + 1];
-        char x = (opcode & 0x0F00) >> 8;
+        unsigned char x = (opcode & 0x0F00) >> 8;
         unsigned short nn = (opcode & 0x00FF);
         unsigned short nnn = (opcode & 0x0FFF);
         unsigned short y = (opcode & 0x00F0) >> 4;
@@ -90,12 +90,14 @@ void emulator::emulateCycle(){
             case 0xF000:   
             {
                 switch(opcode & 0x00F0){
-                    case 0x0000:
+                    case 0x0010:
                     {
-                        indexReg += v[x]; // Add v[x] to the index register, set v[16] if it overflows
+                        indexReg += v[x]; // Add v[x] to the index register, set v[15] if it overflows
+                        
                         if(indexReg > 255){
-                            v[16] = 1;
+                            v[15] = 1;
                         }
+                        
                         programCounter += 2;
                     break;
                     }
@@ -107,20 +109,17 @@ void emulator::emulateCycle(){
                     }
                     case 0x0030 :   // Take v[x], convert it to 3 decimals, and store each in memory
                     {
-                        double newNum = std::to_string(std::strtoll(v[x]*, 0, 16));
-                        double truncNum = std::floor(newNum*100)/100;
-                        int xoo = truncNum/100;
-                        int oxo = (truncNum - xoo) / 10;
-                        int oox = truncNum - (xoo + oxo);
-                        memory[indexReg] = xoo;
-                        memory[indexReg + 1] = oxo;
-                        memory[indexReg + 2] = oox;
+                        int newNum = v[x];
+                        int smallerNum = newNum / 10;
+                        memory[indexReg + 2] = int(newNum % 10);
+                        memory[indexReg + 1] = smallerNum % 10;
+                        memory[indexReg] = int(newNum / 100);
                         programCounter += 2;
                     break;
                     }
-                    case 0x0050:   // Load x of V into memory
+                    case 0x0050:   // Load V into memory
                     {
-                        for(int i = 0; i < x; i++){
+                        for(int i = 0; i < x + 1; ++i){
                             memory[indexReg + i] = v[i];
                         }
                         programCounter += 2;
@@ -128,7 +127,7 @@ void emulator::emulateCycle(){
                     }
                     case 0x0060: // Load memory into V
                     {
-                        for(int i = 0; i < x; i++){
+                        for(int i = 0; i < x + 1; i++){
                             v[i] = memory[indexReg + i];
                         }
                         programCounter += 2;
@@ -184,7 +183,7 @@ void emulator::emulateCycle(){
                 }
             break;
             case 0x5000:    // Skips instruction if v[x] equals v[y], 0x5XY0
-                if(v[x] == (v[y])){
+                if(v[x] == v[y]){
                     programCounter += 4;
                 }   else {
                     programCounter += 2;
@@ -205,54 +204,52 @@ void emulator::emulateCycle(){
                         programCounter += 2;
                     break;
                     case 0x0001:    // Set V[X] equal to binary OR
-                        v[x] = ((v[x]) | (v[y]));
+                        v[x] |= v[y];
                         programCounter += 2;
                     break;
                     case 0x0002:    // Set V[X] equal to binary AND
-                        v[x] = (v[x] & v[y]);
+                        v[x] &= v[y];
                         programCounter += 2;
                     break;
                     case 0x0003:    // Set V[X] equal to binary XOR
-                        v[x] = (v[x] ^ v[y]);
+                        v[x] ^= v[y];
                         programCounter += 2;
                     break;
-                    case 0x0004:    // Add V[Y] to V[X], setting V[16] to 1 if larger than 255
+                    case 0x0004:    // Add V[Y] to V[X], setting V[15] to 1 if larger than 255
                         v[x] = v[x] + v[y];
-                        if(v[x] > 255){
-                            v[16] = 1;
+                        if(v[x] < 255){
+                            v[15] = 1;
                         } else {
-                            v[16] = 0;
+                            v[15] = 0;
                         }
                         programCounter += 2;
                     break;
                     case 0x0005:    // Subtract v[y] from v[x]
-                        if(v[x] > v[y]){
-                            v[16] = 1;
-                        } else if(v[x] < v[y]){
-                            v[16] = 0;
-                        }   else {
-                        }
+                        if(v[x] < v[y]){
+                            v[15] = 1;
+                        } else{
+                            v[15] = 0;
+                        }   
                         v[x] = v[x] - v[y];
                         programCounter += 2;
                     break;
-                    case 0x0006:    // set v[x] = v[y], then shift the bit one to the left/right and store the shifted bit in v[16]
+                    case 0x0006:    // set v[x] = v[y], then shift the bit one to the left/right and store the shifted bit in v[15]
                         v[x] = v[y];
-                        v[16] = v[x] & 1;
+                        v[15] = v[x] & 1;
                         v[x] = v[x] >> 1;
                         programCounter += 2;
                     break;
                     case 0x000E: // See above
                         v[x] = v[y];
-                        v[16] = v[x] & 1;
+                        v[15] = v[x] & 1;
                         v[x] = v[x] << 1; 
                         programCounter += 2;
                     break;
                     case 0x0007:    //Same as before, but switch the numbers
-                         if(v[x] < v[y]){
-                            v[16] = 1;
-                        } else if(v[x] > v[y]){
-                            v[16] = 0;
-                        }   else {
+                        if(v[x] > v[y]){
+                            v[15] = 1;
+                        } else{
+                            v[15] = 0;
                         }
                         v[x] = v[y] - v[x];
                         programCounter += 2;
@@ -260,7 +257,7 @@ void emulator::emulateCycle(){
                 }
             break;
             case 0x9000:    // Skips instruction if v[x] != v[y], 0x9XY0
-                if(v[x] == v[y]){
+                if(v[x] == v[(opcode & 0x00F0) >> 2]){
                     programCounter += 4;
                 } else {
                     programCounter += 2;
@@ -297,7 +294,7 @@ void emulator::emulateCycle(){
         }
     }
     void emulator::stopFlag(){
-        drawFlag == false;
+        drawFlag = false;
     }
     void emulator::initialize(){
         std::cout << "Initializing!" << std::endl;
@@ -316,7 +313,7 @@ void emulator::emulateCycle(){
                 0xF0, 0x90, 0xF0, 0x90, 0x90, // A
                 0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
                 0xF0, 0x80, 0x80, 0x80, 0xF0, // C
-                0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+                0xE0, 0x90, 0x90, 0x90, 0xE0, // D(opcode & 0x00F0) >> 4
                 0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
                 0xF0, 0x80, 0xF0, 0x80, 0x80  // F
         };
@@ -326,6 +323,9 @@ void emulator::emulateCycle(){
         stackPointer = 0;
         for(int i =0; i < 80; i++){
             memory[i] = font[i];
+        }
+        for(int i = 0; i < 16; i++){
+            v[i] = 0;
         }
     }
     void emulator::drawScreen(){
