@@ -34,30 +34,30 @@ void emulator::loadRom(){
 void emulator::emulateCycle(){
         //Fetch
         opcode = memory[programCounter] << 8 | memory[programCounter + 1];
-        unsigned char x = (opcode & 0x0F00) >> 8;
-        unsigned short nn = (opcode & 0x00FF);
-        unsigned short nnn = (opcode & 0x0FFF);
-        unsigned short y = (opcode & 0x00F0) >> 4;
+        unsigned char x = (opcode & 0x0F00u) >> 8u;
+        unsigned short nn = (opcode & 0x00FFu);
+        unsigned short nnn = (opcode & 0x0FFFu);
+        unsigned char y = (opcode & 0x00F0u) >> 4u;
+        programCounter += 2;
         //Decode and execute
         switch(opcode & 0xF000){
-            
+            case 0x7000:    // Add given value to virtual register
+                v[x] += nn;
+            break;
             case 0xA000:    // Set index to the address NNN
             {
                 indexReg = nnn;
-                programCounter += 2;
             break;
             }
             case 0xB000:    // Jump to address + v[0]
             {
                 indexReg = (nnn + v[0]);
-                programCounter += 2;
             break;
             }
             case 0xC000:         // Generates a random number, binary ANDs it with nn, then stores it in X
             {
                 int random = rand();
                 v[x] = (nn & random);
-                programCounter += 2;
             break;
             }
             case 0xE000:   
@@ -67,10 +67,9 @@ void emulator::emulateCycle(){
                     {
                         set_raw_mode(true);
                         int ch = quick_read();
-                        if(ch == v[x]){
-                            programCounter += 4;
-                        } else {
+                        if(ch == currKey[v[x]]){
                             programCounter += 2;
+                        } else {
                         }
                     break;
                     }
@@ -78,10 +77,9 @@ void emulator::emulateCycle(){
                     {
                         set_raw_mode(true);
                         int ch = quick_read();
-                        if(ch != v[x]){
-                            programCounter += 4;
-                        }   else{
+                        if(ch != currKey[v[x]]){
                             programCounter += 2;
+                        }   else{
                         }
                     break;
                     }
@@ -97,14 +95,11 @@ void emulator::emulateCycle(){
                         if(indexReg > 255){
                             v[15] = 1;
                         }
-                        
-                        programCounter += 2;
                     break;
                     }
                     case 0x0020:   // Index Register is set to the address of character in v[x]
                     {
                         indexReg = v[x] * 0.5;
-                        programCounter += 2;
                     break;
                     }
                     case 0x0030 :   // Take v[x], convert it to 3 decimals, and store each in memory
@@ -114,7 +109,6 @@ void emulator::emulateCycle(){
                         memory[indexReg + 2] = int(newNum % 10);
                         memory[indexReg + 1] = smallerNum % 10;
                         memory[indexReg] = int(newNum / 100);
-                        programCounter += 2;
                     break;
                     }
                     case 0x0050:   // Load V into memory
@@ -122,7 +116,6 @@ void emulator::emulateCycle(){
                         for(int i = 0; i < x + 1; ++i){
                             memory[indexReg + i] = v[i];
                         }
-                        programCounter += 2;
                     break;
                     }
                     case 0x0060: // Load memory into V
@@ -130,7 +123,6 @@ void emulator::emulateCycle(){
                         for(int i = 0; i < x + 1; i++){
                             v[i] = memory[indexReg + i];
                         }
-                        programCounter += 2;
                     break;
                     }
                 } 
@@ -140,15 +132,16 @@ void emulator::emulateCycle(){
                 switch(nnn){
                     case 0x00E0:    // Clear the screen
                     {
-                        std::fill(std::begin(screen), std::end(screen), 0);
+                        for(int i = 0; i <= 2048; i++){
+                            screen[i] = 0;
+                        }
                         drawFlag = true;
-                        programCounter += 2;
                     break;
                     }
                     case 0x00EE:    // Return from subroutine
                     {
                         --stackPointer;
-                        programCounter = stack[stackPointer] + 2;
+                        programCounter = stack[stackPointer];
                     break;
                     }
                 }
@@ -169,60 +162,46 @@ void emulator::emulateCycle(){
             case 0x3000:    // Skips next instruction if v[x] equals NN, 0x3XNN
             {
                 if(v[x] == nn){
-                    programCounter += 4;
-                } else {
                     programCounter += 2;
+                } else {
                 }
             break;
             }
             case 0x4000:    //Skip next instruction if v[x] is not equal
                 if(v[x] != nn){
-                    programCounter += 4;
+                    programCounter += 2;
                 }   else {
-                    programCounter += 2; 
                 }
             break;
             case 0x5000:    // Skips instruction if v[x] equals v[y], 0x5XY0
                 if(v[x] == v[y]){
-                    programCounter += 4;
-                }   else {
                     programCounter += 2;
+                }   else {
                 }
             break;
             case 0x6000: // Set virtual register to given value
                 v[x] = nn;
-                programCounter += 2;
-            break;
-            case 0x7000:    // Add given value to virtual register
-                v[x] += nn;
-                programCounter += 2;
             break;
             case 0x8000:    //switch case to find which instruction
+                v[15] = 1;
                 switch(opcode & 0x000F){
+                   
                     case 0x0000:    // Self explanatory
                         v[x] = v[y];
-                        programCounter += 2;
                     break;
                     case 0x0001:    // Set V[X] equal to binary OR
+                        
                         v[x] |= v[y];
-                        programCounter += 2;
                     break;
                     case 0x0002:    // Set V[X] equal to binary AND
                         v[x] &= v[y];
-                        programCounter += 2;
                     break;
                     case 0x0003:    // Set V[X] equal to binary XOR
                         v[x] ^= v[y];
-                        programCounter += 2;
                     break;
                     case 0x0004:    // Add V[Y] to V[X], setting V[15] to 1 if larger than 255
-                        v[x] = v[x] + v[y];
-                        if(v[x] < 255){
-                            v[15] = 1;
-                        } else {
-                            v[15] = 0;
-                        }
-                        programCounter += 2;
+                        v[15] = (v[x] + v[y] > 0xFF) ? 1 : 0;
+                        v[x] += v[y];
                     break;
                     case 0x0005:    // Subtract v[y] from v[x]
                         if(v[x] < v[y]){
@@ -231,19 +210,16 @@ void emulator::emulateCycle(){
                             v[15] = 0;
                         }   
                         v[x] = v[x] - v[y];
-                        programCounter += 2;
                     break;
                     case 0x0006:    // set v[x] = v[y], then shift the bit one to the left/right and store the shifted bit in v[15]
                         v[x] = v[y];
                         v[15] = v[x] & 1;
                         v[x] = v[x] >> 1;
-                        programCounter += 2;
                     break;
                     case 0x000E: // See above
                         v[x] = v[y];
                         v[15] = v[x] & 1;
                         v[x] = v[x] << 1; 
-                        programCounter += 2;
                     break;
                     case 0x0007:    //Same as before, but switch the numbers
                         if(v[x] > v[y]){
@@ -252,43 +228,40 @@ void emulator::emulateCycle(){
                             v[15] = 0;
                         }
                         v[x] = v[y] - v[x];
-                        programCounter += 2;
                     break;
                 }
             break;
             case 0x9000:    // Skips instruction if v[x] != v[y], 0x9XY0
                 if(v[x] == v[(opcode & 0x00F0) >> 2]){
-                    programCounter += 4;
-                } else {
                     programCounter += 2;
+                } else {
                 }
             break;
             case 0xD000:    // Draw to screen
             {
-                unsigned short x = v[(opcode & 0x0F00) >> 8];
-                unsigned short y = v[(opcode & 0x00F0) >> 4];
-                unsigned short height = opcode & 0x000F;
-                unsigned short pixel;
+            int xScreen = v[x];
+            int yScreen = v[y];
+            int ht = opcode & 0x000F; //N
+            int wt = 8;
+            v[0x0F] = 0;
 
-            v[0xF] = 0;
-            for (int yline = 0; yline < height; yline++)
+            for (int i = 0; i < ht; i++)
             {
-                pixel = memory[indexReg + yline];
-                for(int xline = 0; xline < 8; xline++)
+                int pixel = memory[indexReg + i];
+                for (int j = 0; j < wt; j++)
                 {
-                    if((pixel & (0x80 >> xline)) != 0)
+                    if ((pixel & (0x80 >> j)) != 0)
                     {
-                        if(screen[(x + xline + ((y + yline) * 64))] == 1)
+                        int index = ((xScreen + j) % 64) + (((yScreen + i) % 32) * 64);
+                        if (screen[index] == 1)
                         {
-                            v[0xF] = 1;
+                            v[0x0F] = 1;
                         }
-                        screen[x + xline + ((y + yline) * 64)] ^= 1;
+                        screen[index] ^= 1;
                     }
                 }
             }
-
             drawFlag = true;
-            programCounter += 2;
             }
             break;
         }
@@ -313,20 +286,28 @@ void emulator::emulateCycle(){
                 0xF0, 0x90, 0xF0, 0x90, 0x90, // A
                 0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
                 0xF0, 0x80, 0x80, 0x80, 0xF0, // C
-                0xE0, 0x90, 0x90, 0x90, 0xE0, // D(opcode & 0x00F0) >> 4
+                0xE0, 0x90, 0x90, 0x90, 0xE0, // D
                 0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
                 0xF0, 0x80, 0xF0, 0x80, 0x80  // F
         };
-        programCounter = 0x200; //The first 512 bytes(?) of memory are consumed by fonts
+        programCounter = 512; //The first 512 bytes(?) of memory are consumed by fonts
         opcode = 0;
         indexReg = 0;
         stackPointer = 0;
-        for(int i =0; i < 80; i++){
+        for(int i = 0; i < 4096; i++){
+            memory[i] = 0;
+        }
+        // Load fontset into memory
+        for(int i = 0; i < 80; i++){
             memory[i] = font[i];
         }
+        // Set vregister to 0
         for(int i = 0; i < 16; i++){
             v[i] = 0;
+            stack[i] = 0;
+            currKey[i] = 0;
         }
+
     }
     void emulator::drawScreen(){
         for(int y = 0; y < 32; y++){
