@@ -51,7 +51,7 @@ void emulator::emulateCycle(){
             }
             case 0xB000:    // Jump to address + v[0]
             {
-                indexReg = (nnn + v[0]);
+                programCounter = (nnn + v[0]);
             break;
             }
             case 0xC000:         // Generates a random number, binary ANDs it with nn, then stores it in X
@@ -84,6 +84,7 @@ void emulator::emulateCycle(){
                     break;
                     }
                 }
+                break;
             }
             case 0xF000:   
             {
@@ -99,7 +100,7 @@ void emulator::emulateCycle(){
                     }
                     case 0x0020:   // Index Register is set to the address of character in v[x]
                     {
-                        indexReg = v[x] * 0.5;
+                        indexReg = v[x] * 5;
                     break;
                     }
                     case 0x0030 :   // Take v[x], convert it to 3 decimals, and store each in memory
@@ -232,7 +233,7 @@ void emulator::emulateCycle(){
                 }
             break;
             case 0x9000:    // Skips instruction if v[x] != v[y], 0x9XY0
-                if(v[x] == v[(opcode & 0x00F0) >> 2]){
+                if(v[x] != v[y]){
                     programCounter += 2;
                 } else {
                 }
