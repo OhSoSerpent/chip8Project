@@ -7,8 +7,6 @@
 #include <iomanip>
 #include <cmath>
 #include <string>
-// Third-party library for keyboard-based events
-#include "colors.h"
 
 
 void emulator::loadRom(){
@@ -65,8 +63,7 @@ void emulator::emulateCycle(){
                 switch(opcode & 0x000F){
                     case 0x000E:    // Skip next instruction if holding given key
                     {
-                        set_raw_mode(true);
-                        int ch = quick_read();
+                        int ch = std::getchar();
                         if(ch == currKey[v[x]]){
                             programCounter += 2;
                         } else {
@@ -75,8 +72,7 @@ void emulator::emulateCycle(){
                     }
                     case 0x0001:    //Skip next instruction if not holding given key
                     {
-                        set_raw_mode(true);
-                        int ch = quick_read();
+                        int ch = std::getchar();
                         if(ch != currKey[v[x]]){
                             programCounter += 2;
                         }   else{
