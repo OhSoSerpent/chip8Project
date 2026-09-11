@@ -22,7 +22,7 @@ class emulator{
         unsigned char flagVal;
         sf::RenderWindow* window;
         sf::RectangleShape pixelBuffer[64*32];
-        const int PIXEL_SIZE = 10;
+        static const int PIXEL_SIZE = 10;
     public:
         bool drawFlag = false;
         void initialize(sf::RenderWindow* w);
