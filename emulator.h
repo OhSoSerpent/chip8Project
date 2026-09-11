@@ -2,6 +2,9 @@
 #define EMULATOR_H
 #include <iostream>
 #include <cstddef>
+#include <string>
+#include <SFML/Graphics.hpp>
+
 class emulator{
     private:
         std::string inputFile;
@@ -17,12 +20,16 @@ class emulator{
         unsigned short stackPointer;
         unsigned char currKey[16];
         unsigned char flagVal;
+        sf::RenderWindow* window;
+        sf::RectangleShape pixelBuffer[64*32];
+        const int PIXEL_SIZE = 10;
     public:
         bool drawFlag = false;
-    void initialize();
-    void loadRom();
-    void emulateCycle();
-    void drawScreen();
-    void stopFlag();
+        void initialize(sf::RenderWindow* w);
+        void loadRom();
+        void emulateCycle();
+        void drawScreen();
+        void stopFlag();
+        void updateDisplay();
 };
 #endif
