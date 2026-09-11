@@ -266,8 +266,18 @@ void emulator::emulateCycle(){
     void emulator::stopFlag(){
         drawFlag = false;
     }
-    void emulator::initialize(){
+    void emulator::initialize(sf::RenderWindow* w){
+        window = w;
         std::cout << "Initializing!" << std::endl;
+        // Initialize pixel buffer with rectangles
+        for(int i = 0; i < 64*32; i++){
+            pixelBuffer[i].setSize(sf::Vector2f(PIXEL_SIZE, PIXEL_SIZE));
+            int x = (i % 64) * PIXEL_SIZE;
+            int y = (i / 64) * PIXEL_SIZE;
+            pixelBuffer[i].setPosition(x, y);
+            pixelBuffer[i].setFillColor(sf::Color::Black);
+        }
+        
         // Initialize registers and memory
         unsigned char font[80] = {
                 0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -307,15 +317,20 @@ void emulator::emulateCycle(){
 
     }
     void emulator::drawScreen(){
-        for(int y = 0; y < 32; y++){
-            for(int x = 0; x < 64; x++){
-                if(screen[(y*64) + x] == 0){
-                    std::cout << " ";
-                } else {
-                    std::cout << "■";
-                }
-                
+        // Legacy function - kept for compatibility
+        // Drawing is now handled by updateDisplay()
+    }
+    
+    void emulator::updateDisplay(){
+        if(!window) return;
+        
+        // Update pixel buffer colors based on screen state
+        for(int i = 0; i < 64*32; i++){
+            if(screen[i]){
+                pixelBuffer[i].setFillColor(sf::Color::Green);
+            } else {
+                pixelBuffer[i].setFillColor(sf::Color::Black);
             }
-            std::cout << std::endl;
+            window->draw(pixelBuffer[i]);
         }
     }
