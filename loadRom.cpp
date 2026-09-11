@@ -133,7 +133,7 @@ void emulator::emulateCycle(){
                 switch(nnn){
                     case 0x00E0:    // Clear the screen
                     {
-                        for(int i = 0; i <= 2048; i++){
+                        for(int i = 0; i < 2048; i++){
                             screen[i] = 0;
                         }
                         drawFlag = true;
